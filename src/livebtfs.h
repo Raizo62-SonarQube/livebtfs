@@ -60,7 +60,7 @@ private:
 class Read
 {
 public:
-	Read(char *buf, int index, off_t offset, size_t size);
+	Read(char *buf, int index, off_t offset, size_t sizeToRead);
 
 	void fail(int piece);
 

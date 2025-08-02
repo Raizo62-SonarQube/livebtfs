@@ -82,16 +82,16 @@ static struct btfs_params params;
 
 bool ExitAll=false;
 
-Read::Read(char *buf, int index, off_t offset, size_t size) {
+Read::Read(char *buf, int index, off_t offset, size_t sizeToRead) {
 	auto ti = handle.torrent_file();
 
 	pthread_mutex_lock (&waitFinished); // lock the mutex waitFinished
 
 	int64_t file_size = ti->files().file_size(index);
 
-	while (size > 0 && offset < file_size) {
+	while (sizeToRead > 0 && offset < file_size) {
 		lt::peer_request part = ti->map_file(index, offset,
-			(int) size);
+			(int) sizeToRead);
 
 		part.length = std::min(
 			ti->piece_size(part.piece) - part.start,
@@ -102,7 +102,7 @@ Read::Read(char *buf, int index, off_t offset, size_t size) {
 
 		parts.push_back(Part(part, buf));
 
-		size -= (size_t) part.length;
+		sizeToRead -= (size_t) part.length;
 		offset += part.length;
 		buf += part.length;
 	}
