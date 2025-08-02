@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with BTFS.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define FUSE_USE_VERSION 26
+#define FUSE_USE_VERSION 31
 
 //#define _DEBUG
 
@@ -29,7 +29,7 @@ along with BTFS.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <fuse.h>
+#include <fuse3/fuse.h>
 
 // The below pragma lines will silence lots of compiler warnings in the
 // libtorrent headers file. Not livebtfs' fault.
@@ -506,7 +506,7 @@ is_file(const char *path) {
 }
 
 static int
-btfs_getattr(const char *path, struct stat *stbuf) {
+btfs_getattr(const char *path, struct stat *stbuf, [[maybe_unused]] struct fuse_file_info *fi) {
 	if (!is_dir(path) && !is_file(path) && !is_root(path))
 		return -ENOENT;
 
@@ -543,7 +543,8 @@ btfs_getattr(const char *path, struct stat *stbuf) {
 
 static int
 btfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		[[maybe_unused]] off_t offset, [[maybe_unused]] struct fuse_file_info *fi) {
+		[[maybe_unused]] off_t offset, [[maybe_unused]] struct fuse_file_info *fi,
+		[[maybe_unused]] enum fuse_readdir_flags flags) {
 	if (!is_dir(path) && !is_file(path) && !is_root(path))
 		return -ENOENT;
 
@@ -552,11 +553,11 @@ btfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	pthread_mutex_lock(&lock);
 
-	filler(buf, ".", NULL, 0);
-	filler(buf, "..", NULL, 0);
+	filler(buf, ".", NULL, 0, (enum fuse_fill_dir_flags)0);
+	filler(buf, "..", NULL, 0, (enum fuse_fill_dir_flags)0);
 
 	for(auto& i: dirs[path])
-		filler(buf, i.c_str(), NULL, 0);
+		filler(buf, i.c_str(), NULL, 0, (enum fuse_fill_dir_flags)0);
 
 	pthread_mutex_unlock(&lock);
 
@@ -636,22 +637,22 @@ btfs_statfs( [[maybe_unused]] const char *path, struct statvfs *stbuf) {
 }
 
 static int
-btfs_chmod(const char *, mode_t) {
+btfs_chmod(const char *, mode_t, [[maybe_unused]] struct fuse_file_info *fi) {
     return 0;
 }
 
 static int
-btfs_chown(const char *, uid_t, gid_t) {
+btfs_chown(const char *, uid_t, gid_t, [[maybe_unused]] struct fuse_file_info *fi) {
     return 0;
 }
 
 static int
-btfs_utime(const char *, struct utimbuf *) {
+btfs_utimens(const char *, const timespec*, [[maybe_unused]] struct fuse_file_info *fi) {
     return 0;
 }
 
 static void *
-btfs_init( [[maybe_unused]] struct fuse_conn_info *conn) {
+btfs_init( [[maybe_unused]] struct fuse_conn_info *conn, [[maybe_unused]] struct fuse_config *cfg) {
 	pthread_mutex_lock(&lock);
 
 	time_of_mount = time(NULL);
@@ -1121,7 +1122,7 @@ main(int argc, char *argv[]) {
 	btfs_ops.destroy = btfs_destroy;
 	btfs_ops.chmod = btfs_chmod;
 	btfs_ops.chown = btfs_chown;
-	btfs_ops.utime = btfs_utime;
+	btfs_ops.utimens = btfs_utimens;
 
 	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
